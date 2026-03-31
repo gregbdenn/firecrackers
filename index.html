@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Firecracker Field Scheduler</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <h1>🧨 Firecracker Field Scheduler</h1>
+    <nav>
+      <button class="tab active" data-tab="roster">Roster</button>
+      <button class="tab" data-tab="gameday">Game Day</button>
+      <button class="tab" data-tab="lineup">Lineup</button>
+    </nav>
+
+    <!-- ROSTER TAB -->
+    <section id="roster" class="tab-content active">
+      <h2>Team Roster</h2>
+      <form id="add-player-form">
+        <input type="text" id="player-name" placeholder="Player name" required>
+        <fieldset>
+          <legend>Can play:</legend>
+          <label><input type="checkbox" value="P"> P</label>
+          <label><input type="checkbox" value="C"> C</label>
+          <label><input type="checkbox" value="1B"> 1B</label>
+          <label><input type="checkbox" value="2B"> 2B</label>
+          <label><input type="checkbox" value="3B"> 3B</label>
+          <label><input type="checkbox" value="SS"> SS</label>
+          <label><input type="checkbox" value="LF"> LF</label>
+          <label><input type="checkbox" value="CF"> CF</label>
+          <label><input type="checkbox" value="RF"> RF</label>
+        </fieldset>
+        <button type="submit">Add Player</button>
+      </form>
+      <ul id="roster-list"></ul>
+    </section>
+
+    <!-- GAME DAY TAB -->
+    <section id="gameday" class="tab-content">
+      <h2>Who's Here Today?</h2>
+      <div id="attendance-list"></div>
+      <button id="generate-lineup-btn" style="margin-top:1rem;">Generate Lineup</button>
+    </section>
+
+    <!-- LINEUP TAB -->
+    <section id="lineup" class="tab-content">
+      <h2>Game Lineup</h2>
+      <div id="inning-nav"></div>
+      <div id="field-view">
+        <img id="field-img" src="Field.png" alt="Softball field diagram">
+        <div id="field-positions"></div>
+      </div>
+      <div id="bench-section">
+        <h3>Bench This Inning</h3>
+        <div id="bench-list"></div>
+      </div>
+      <div id="fairness-summary"></div>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+        <button id="print-lineup-btn">🖨️ Print Lineup</button>
+        <button id="pdf-lineup-btn">📄 Save as PDF</button>
+      </div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>
