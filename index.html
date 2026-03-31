@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,11 +8,15 @@
 </head>
 <body>
   <div id="app">
-    <h1>🧨 Firecracker Field Scheduler</h1>
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <h1>🧨 Firecracker Field Scheduler</h1>
+      <button id="theme-toggle" style="font-size:1.2rem;background:transparent;padding:0.3rem 0.5rem;" aria-label="Toggle light/dark mode">🌙</button>
+    </div>
     <nav>
       <button class="tab active" data-tab="roster">Roster</button>
       <button class="tab" data-tab="gameday">Game Day</button>
-      <button class="tab" data-tab="lineup">Lineup</button>
+      <button class="tab" data-tab="lineup">Field</button>
+      <button class="tab" data-tab="batting">Batting</button>
     </nav>
 
     <!-- ROSTER TAB -->
@@ -40,13 +44,25 @@
     <!-- GAME DAY TAB -->
     <section id="gameday" class="tab-content">
       <h2>Who's Here Today?</h2>
+      <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
+        <label for="innings-select" style="font-size:0.9rem;">Innings:</label>
+        <select id="innings-select">
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+          <option value="6">6</option>
+          <option value="7" selected>7</option>
+          <option value="8">8</option>
+          <option value="9">9</option>
+        </select>
+      </div>
       <div id="attendance-list"></div>
       <button id="generate-lineup-btn" style="margin-top:1rem;">Generate Lineup</button>
     </section>
 
     <!-- LINEUP TAB -->
     <section id="lineup" class="tab-content">
-      <h2>Game Lineup</h2>
+      <h2>Field Positions</h2>
       <div id="inning-nav"></div>
       <div id="field-view">
         <img id="field-img" src="Field.png" alt="Softball field diagram">
@@ -60,6 +76,17 @@
       <div style="display:flex;gap:0.5rem;margin-top:1rem;">
         <button id="print-lineup-btn">🖨️ Print Lineup</button>
         <button id="pdf-lineup-btn">📄 Save as PDF</button>
+      </div>
+    </section>
+
+    <!-- BATTING ORDER TAB -->
+    <section id="batting" class="tab-content">
+      <h2>Batting Order</h2>
+      <p style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.75rem;">Drag players to reorder. All checked-in players bat every inning.</p>
+      <ul id="batting-list"></ul>
+      <div style="display:flex;gap:0.5rem;margin-top:1rem;">
+        <button id="print-batting-btn">🖨️ Print Lineup</button>
+        <button id="pdf-batting-btn">📄 Save as PDF</button>
       </div>
     </section>
   </div>

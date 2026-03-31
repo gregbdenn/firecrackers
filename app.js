@@ -27,29 +27,51 @@ const DEFAULT_ROSTER = [
   { name: 'Payton', canPlay: ['1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'] },
   { name: 'Tinley', canPlay: ['1B', '2B', '3B', 'SS', 'LF', 'CF', 'RF'] },
 ];
+
 let roster = loadRoster();
 function loadRoster() {
   const saved = JSON.parse(localStorage.getItem('softball_roster') || 'null');
   if (!saved || saved.length === 0) return DEFAULT_ROSTER.map(p => ({ ...p }));
-  // Migrate old format: if any player has old-style values, reset to defaults
   const oldValues = ['pitcher', 'catcher', 'infield', 'outfield'];
   const hasOldFormat = saved.some(p => p.canPlay.some(v => oldValues.includes(v)));
-  if (hasOldFormat) {
-    localStorage.removeItem('softball_roster');
-    return DEFAULT_ROSTER.map(p => ({ ...p }));
-  }
+  if (hasOldFormat) { localStorage.removeItem('softball_roster'); return DEFAULT_ROSTER.map(p => ({ ...p })); }
   return saved;
 }
+
 let attendance = JSON.parse(localStorage.getItem('softball_attendance') || '[]');
 let lineup = JSON.parse(localStorage.getItem('softball_lineup') || 'null');
+let battingOrder = JSON.parse(localStorage.getItem('softball_batting') || '[]');
 let currentInning = 0;
-const INNINGS = 7;
+let innings = parseInt(localStorage.getItem('softball_innings') || '7');
 
 function save() {
   localStorage.setItem('softball_roster', JSON.stringify(roster));
   localStorage.setItem('softball_attendance', JSON.stringify(attendance));
   localStorage.setItem('softball_lineup', JSON.stringify(lineup));
+  localStorage.setItem('softball_batting', JSON.stringify(battingOrder));
+  localStorage.setItem('softball_innings', innings.toString());
 }
+
+// ---- Theme Toggle ----
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  document.getElementById('theme-toggle').textContent = theme === 'dark' ? '☀️' : '🌙';
+  localStorage.setItem('softball_theme', theme);
+}
+const savedTheme = localStorage.getItem('softball_theme') || 'dark';
+applyTheme(savedTheme);
+document.getElementById('theme-toggle').addEventListener('click', () => {
+  const current = document.documentElement.getAttribute('data-theme');
+  applyTheme(current === 'dark' ? 'light' : 'dark');
+});
+
+// ---- Innings Config ----
+const inningsSelect = document.getElementById('innings-select');
+inningsSelect.value = innings.toString();
+inningsSelect.addEventListener('change', () => {
+  innings = parseInt(inningsSelect.value);
+  save();
+});
 
 // ---- Tabs ----
 document.querySelectorAll('.tab').forEach(btn => {
@@ -60,6 +82,7 @@ document.querySelectorAll('.tab').forEach(btn => {
     document.getElementById(btn.dataset.tab).classList.add('active');
     if (btn.dataset.tab === 'gameday') renderAttendance();
     if (btn.dataset.tab === 'lineup') renderLineup();
+    if (btn.dataset.tab === 'batting') renderBattingOrder();
   });
 });
 
@@ -75,7 +98,7 @@ function renderRoster() {
         <span class="positions">${p.canPlay.join(', ')}</span>
       </div>
       <div style="display:flex;gap:0.3rem;">
-        <button class="edit-btn" data-idx="${i}" style="background:#0f3460;font-size:0.75rem;padding:0.2rem 0.5rem;">✎</button>
+        <button class="edit-btn" data-idx="${i}" style="background:var(--surface-active);font-size:0.75rem;padding:0.2rem 0.5rem;">✎</button>
         <button class="remove-btn" data-idx="${i}">✕</button>
       </div>
     `;
@@ -95,10 +118,8 @@ function renderRoster() {
       document.getElementById('player-name').value = p.name;
       const checks = document.querySelectorAll('#add-player-form input[type=checkbox]');
       checks.forEach(c => { c.checked = p.canPlay.includes(c.value); });
-      // Temporarily change form to "update" mode
       const form = document.getElementById('add-player-form');
-      const submitBtn = form.querySelector('button[type=submit]');
-      submitBtn.textContent = 'Update Player';
+      form.querySelector('button[type=submit]').textContent = 'Update Player';
       form.dataset.editIdx = idx;
     });
   });
@@ -132,7 +153,7 @@ function renderAttendance() {
   const container = document.getElementById('attendance-list');
   container.innerHTML = '';
   if (roster.length === 0) {
-    container.innerHTML = '<p style="color:#aaa">Add players to your roster first.</p>';
+    container.innerHTML = '<p style="color:var(--text-muted)">Add players to your roster first.</p>';
     return;
   }
   roster.forEach((p, i) => {
@@ -141,7 +162,7 @@ function renderAttendance() {
     row.className = 'attendance-row';
     row.innerHTML = `
       <input type="checkbox" id="att-${i}" ${present ? 'checked' : ''}>
-      <label for="att-${i}">${p.name} <span style="color:#aaa;font-size:0.8rem">(${p.canPlay.join(', ')})</span></label>
+      <label for="att-${i}">${p.name} <span style="color:var(--text-muted);font-size:0.8rem">(${p.canPlay.join(', ')})</span></label>
     `;
     row.querySelector('input').addEventListener('change', e => {
       if (e.target.checked) {
@@ -174,12 +195,12 @@ function renderOverrides() {
 
   overrideDiv.innerHTML = `
     <h3>Assign Pitcher & Catcher per Inning</h3>
-    <p style="color:#aaa;font-size:0.8rem;margin-bottom:0.5rem">Leave blank to auto-assign. You can assign different players per inning.</p>
+    <p style="color:var(--text-muted);font-size:0.8rem;margin-bottom:0.5rem">Leave blank to auto-assign.</p>
     <div id="pitcher-catcher-grid"></div>
   `;
 
   const grid = document.getElementById('pitcher-catcher-grid');
-  for (let inn = 0; inn < INNINGS; inn++) {
+  for (let inn = 0; inn < innings; inn++) {
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;gap:0.5rem;align-items:center;margin-bottom:0.3rem;';
     row.innerHTML = `
@@ -199,7 +220,7 @@ function renderOverrides() {
 
 function getOverrides() {
   const overrides = [];
-  for (let inn = 0; inn < INNINGS; inn++) {
+  for (let inn = 0; inn < innings; inn++) {
     const pSel = document.querySelector(`select[data-role="pitcher"][data-inning="${inn}"]`);
     const cSel = document.querySelector(`select[data-role="catcher"][data-inning="${inn}"]`);
     overrides.push({
@@ -213,12 +234,12 @@ function getOverrides() {
 // ---- Lineup Generation ----
 document.getElementById('generate-lineup-btn').addEventListener('click', () => {
   const present = roster.filter(p => attendance.includes(p.name));
-  if (present.length < 4) {
-    alert('Need at least 4 players checked in.');
-    return;
-  }
+  if (present.length < 4) { alert('Need at least 4 players checked in.'); return; }
   const overrides = getOverrides();
   lineup = generateLineup(present, overrides);
+  // Auto-generate batting order from present players if not set
+  const presentNames = present.map(p => p.name);
+  battingOrder = presentNames.slice();
   save();
   currentInning = 0;
   document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
@@ -236,14 +257,14 @@ function generateLineup(players, overrides) {
     ALL_POSITIONS.forEach(pos => { stats[p.name].positions[pos] = 0; });
   });
 
-  const innings = [];
+  const inningsList = [];
 
-  for (let inn = 0; inn < INNINGS; inn++) {
+  for (let inn = 0; inn < innings; inn++) {
     const assignment = {};
     const assigned = new Set();
 
-    // 1. Pitcher override or auto
-    let pitcherName = overrides[inn].pitcher;
+    // Pitcher
+    let pitcherName = overrides[inn] ? overrides[inn].pitcher : '';
     if (pitcherName && players.find(p => p.name === pitcherName)) {
       assignment.P = pitcherName;
       assigned.add(pitcherName);
@@ -256,8 +277,8 @@ function generateLineup(players, overrides) {
       }
     }
 
-    // 2. Catcher override or auto
-    let catcherName = overrides[inn].catcher;
+    // Catcher
+    let catcherName = overrides[inn] ? overrides[inn].catcher : '';
     if (catcherName && players.find(p => p.name === catcherName) && !assigned.has(catcherName)) {
       assignment.C = catcherName;
       assigned.add(catcherName);
@@ -270,43 +291,33 @@ function generateLineup(players, overrides) {
       }
     }
 
-    // 3. Fill remaining 7 field positions (1B, 2B, 3B, SS, LF, CF, RF)
+    // Fill remaining positions
     const fieldPositions = [...INFIELD_POS, ...OUTFIELD_POS];
     const totalSlots = Math.min(9, n);
     const batteryCount = (assignment.P ? 1 : 0) + (assignment.C ? 1 : 0);
     const remainingSlots = totalSlots - batteryCount;
 
-    // Get remaining players sorted by fewest innings played
     const remaining = players.filter(p => !assigned.has(p.name));
     remaining.sort((a, b) => stats[a.name].played - stats[b.name].played);
 
     const playingThisInning = remaining.slice(0, remainingSlots);
     const bench = remaining.slice(remainingSlots);
 
-    // Assign players to specific positions using a greedy approach
-    // that respects canPlay and balances infield/outfield time
     const positionsToFill = fieldPositions.slice(0, remainingSlots);
     const unassignedPlayers = [...playingThisInning];
 
-    // Score: for each (player, position) pair, compute a desirability score
-    // Lower score = better assignment
-    // Considers: can they play it? how much IF/OF have they had? how many times at this exact position?
     function assignmentScore(player, pos) {
       if (!player.canPlay.includes(pos)) return 9999;
       const s = stats[player.name];
       const totalFielded = s.infield + s.outfield || 1;
       const isInfield = INFIELD_POS.includes(pos);
       const ratio = isInfield ? s.infield / totalFielded : s.outfield / totalFielded;
-      // Prefer assigning to the type they've played less of
       return ratio * 10 + s.positions[pos];
     }
 
-    // Greedy assignment: iterate positions, pick best available player
-    // Do two passes: first assign players who can only play limited positions
     const posAssignments = {};
     const usedPlayers = new Set();
 
-    // Sort positions by how many available players can fill them (most constrained first)
     const sortedPositions = positionsToFill.slice().sort((a, b) => {
       const aCount = unassignedPlayers.filter(p => p.canPlay.includes(a)).length;
       const bCount = unassignedPlayers.filter(p => p.canPlay.includes(b)).length;
@@ -316,12 +327,8 @@ function generateLineup(players, overrides) {
     for (const pos of sortedPositions) {
       const candidates = unassignedPlayers.filter(p => !usedPlayers.has(p.name) && p.canPlay.includes(pos));
       if (candidates.length === 0) {
-        // Fallback: assign anyone not used
         const fallback = unassignedPlayers.filter(p => !usedPlayers.has(p.name));
-        if (fallback.length > 0) {
-          posAssignments[pos] = fallback[0].name;
-          usedPlayers.add(fallback[0].name);
-        }
+        if (fallback.length > 0) { posAssignments[pos] = fallback[0].name; usedPlayers.add(fallback[0].name); }
         continue;
       }
       candidates.sort((a, b) => assignmentScore(a, pos) - assignmentScore(b, pos));
@@ -331,7 +338,6 @@ function generateLineup(players, overrides) {
 
     Object.assign(assignment, posAssignments);
 
-    // Update stats
     for (const [pos, name] of Object.entries(assignment)) {
       if (!stats[name]) continue;
       stats[name].played++;
@@ -342,13 +348,10 @@ function generateLineup(players, overrides) {
       else if (OUTFIELD_POS.includes(pos)) stats[name].outfield++;
     }
 
-    innings.push({
-      assignment,
-      bench: bench.map(p => p.name),
-    });
+    inningsList.push({ assignment, bench: bench.map(p => p.name) });
   }
 
-  return { innings, stats };
+  return { innings: inningsList, stats };
 }
 
 // ---- Lineup Rendering ----
@@ -385,29 +388,19 @@ function handlePositionSwap(inningIdx, pos, newName) {
   if (newName === oldName) return;
 
   if (newName === '') {
-    // Move current player to bench
     if (oldName) {
       delete inning.assignment[pos];
       if (!inning.bench.includes(oldName)) inning.bench.push(oldName);
     }
   } else {
-    // Check if newName is already assigned to another position this inning
     const existingPos = Object.entries(inning.assignment).find(([p, n]) => n === newName && p !== pos);
     if (existingPos) {
-      // Swap: put old player in the other position
-      if (oldName) {
-        inning.assignment[existingPos[0]] = oldName;
-      } else {
-        delete inning.assignment[existingPos[0]];
-      }
+      if (oldName) { inning.assignment[existingPos[0]] = oldName; }
+      else { delete inning.assignment[existingPos[0]]; }
     }
-    // If newName was on bench, remove from bench
     inning.bench = inning.bench.filter(n => n !== newName);
-    // If old player is displaced and not swapped, bench them
     if (oldName && !existingPos && oldName !== newName) {
-      if (!Object.values(inning.assignment).includes(oldName)) {
-        inning.bench.push(oldName);
-      }
+      if (!Object.values(inning.assignment).includes(oldName)) inning.bench.push(oldName);
     }
     inning.assignment[pos] = newName;
   }
@@ -418,7 +411,7 @@ function handlePositionSwap(inningIdx, pos, newName) {
 
 function renderLineup() {
   if (!lineup) {
-    document.getElementById('inning-nav').innerHTML = '<p style="color:#aaa">Generate a lineup from the Game Day tab.</p>';
+    document.getElementById('inning-nav').innerHTML = '<p style="color:var(--text-muted)">Generate a lineup from the Game Day tab.</p>';
     document.getElementById('field-positions').innerHTML = '';
     document.getElementById('bench-list').innerHTML = '';
     document.getElementById('fairness-summary').innerHTML = '';
@@ -427,7 +420,7 @@ function renderLineup() {
 
   const nav = document.getElementById('inning-nav');
   nav.innerHTML = '';
-  for (let i = 0; i < INNINGS; i++) {
+  for (let i = 0; i < lineup.innings.length; i++) {
     const btn = document.createElement('button');
     btn.className = 'inning-btn' + (i === currentInning ? ' active' : '');
     btn.textContent = `${i + 1}`;
@@ -466,7 +459,7 @@ function renderLineup() {
   const benchList = document.getElementById('bench-list');
   benchList.innerHTML = '';
   if (inning.bench.length === 0) {
-    benchList.innerHTML = '<span style="color:#aaa">Nobody on the bench</span>';
+    benchList.innerHTML = '<span style="color:var(--text-muted)">Nobody on the bench</span>';
   } else {
     inning.bench.forEach(name => {
       const span = document.createElement('span');
@@ -490,10 +483,117 @@ function renderFairness() {
   container.innerHTML = html;
 }
 
+// ---- Batting Order (Drag & Drop) ----
+let dragSrcIdx = null;
+
+function renderBattingOrder() {
+  const list = document.getElementById('batting-list');
+  list.innerHTML = '';
+
+  // Sync batting order with present players
+  const presentNames = getAllPresentPlayers().map(p => p.name);
+  if (presentNames.length === 0) {
+    list.innerHTML = '<p style="color:var(--text-muted)">Check in players on the Game Day tab first.</p>';
+    return;
+  }
+  // Keep existing order for players still present, add new ones at end
+  battingOrder = battingOrder.filter(n => presentNames.includes(n));
+  presentNames.forEach(n => { if (!battingOrder.includes(n)) battingOrder.push(n); });
+  save();
+
+  battingOrder.forEach((name, i) => {
+    const li = document.createElement('li');
+    li.draggable = true;
+    li.dataset.idx = i;
+    li.innerHTML = `
+      <span class="drag-handle">☰</span>
+      <span style="flex:1">${name}</span>
+      <button class="move-btn" data-dir="up" data-idx="${i}" ${i === 0 ? 'disabled' : ''}>▲</button>
+      <button class="move-btn" data-dir="down" data-idx="${i}" ${i === battingOrder.length - 1 ? 'disabled' : ''}>▼</button>
+    `;
+
+    li.addEventListener('dragstart', e => {
+      dragSrcIdx = i;
+      li.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+    li.addEventListener('dragend', () => {
+      li.classList.remove('dragging');
+      list.querySelectorAll('li').forEach(el => el.classList.remove('drag-over'));
+    });
+    li.addEventListener('dragover', e => {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      li.classList.add('drag-over');
+    });
+    li.addEventListener('dragleave', () => {
+      li.classList.remove('drag-over');
+    });
+    li.addEventListener('drop', e => {
+      e.preventDefault();
+      li.classList.remove('drag-over');
+      const targetIdx = parseInt(li.dataset.idx);
+      if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+      const moved = battingOrder.splice(dragSrcIdx, 1)[0];
+      battingOrder.splice(targetIdx, 0, moved);
+      save();
+      renderBattingOrder();
+    });
+
+    // Touch support for mobile
+    let touchStartY = 0;
+    li.addEventListener('touchstart', e => {
+      dragSrcIdx = i;
+      touchStartY = e.touches[0].clientY;
+      li.classList.add('dragging');
+    }, { passive: true });
+    li.addEventListener('touchmove', e => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      list.querySelectorAll('li').forEach(el => el.classList.remove('drag-over'));
+      if (target && target.closest('#batting-list li')) {
+        target.closest('#batting-list li').classList.add('drag-over');
+      }
+    }, { passive: false });
+    li.addEventListener('touchend', e => {
+      li.classList.remove('dragging');
+      const touch = e.changedTouches[0];
+      const target = document.elementFromPoint(touch.clientX, touch.clientY);
+      list.querySelectorAll('li').forEach(el => el.classList.remove('drag-over'));
+      if (target && target.closest('#batting-list li')) {
+        const targetIdx = parseInt(target.closest('#batting-list li').dataset.idx);
+        if (dragSrcIdx !== null && dragSrcIdx !== targetIdx) {
+          const moved = battingOrder.splice(dragSrcIdx, 1)[0];
+          battingOrder.splice(targetIdx, 0, moved);
+          save();
+          renderBattingOrder();
+        }
+      }
+    });
+
+    list.appendChild(li);
+  });
+
+  // Up/down button handlers
+  list.querySelectorAll('.move-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.dataset.idx);
+      const dir = btn.dataset.dir;
+      if (dir === 'up' && idx > 0) {
+        [battingOrder[idx - 1], battingOrder[idx]] = [battingOrder[idx], battingOrder[idx - 1]];
+      } else if (dir === 'down' && idx < battingOrder.length - 1) {
+        [battingOrder[idx], battingOrder[idx + 1]] = [battingOrder[idx + 1], battingOrder[idx]];
+      }
+      save();
+      renderBattingOrder();
+    });
+  });
+}
+
 // ---- Print / PDF ----
 function buildPrintHTML() {
   if (!lineup) return '';
-  const present = getAllPresentPlayers().map(p => p.name);
   let html = `
     <html><head><title>Firecracker Field Scheduler</title>
     <style>
@@ -504,7 +604,9 @@ function buildPrintHTML() {
       th, td { border: 1px solid #ccc; padding: 0.25rem 0.5rem; text-align: left; }
       th { background: #eee; font-size: 0.75rem; text-transform: uppercase; }
       .bench { font-size: 0.85rem; color: #555; margin-bottom: 0.5rem; }
-      .summary { page-break-before: auto; margin-top: 1rem; }
+      .summary { margin-top: 1rem; }
+      .batting { margin-top: 1rem; }
+      .batting ol { margin-left: 1.5rem; font-size: 0.85rem; }
       @media print { body { margin: 0.5cm; } }
     </style></head><body>
     <h1>🧨 Firecracker Field Scheduler</h1>
@@ -517,9 +619,14 @@ function buildPrintHTML() {
       html += `<tr><td>${pos}</td><td>${inn.assignment[pos] || '—'}</td></tr>`;
     }
     html += '</table>';
-    if (inn.bench.length > 0) {
-      html += `<div class="bench">Bench: ${inn.bench.join(', ')}</div>`;
-    }
+    if (inn.bench.length > 0) html += `<div class="bench">Bench: ${inn.bench.join(', ')}</div>`;
+  }
+
+  // Batting order
+  if (battingOrder.length > 0) {
+    html += '<div class="batting"><h2>Batting Order</h2><ol>';
+    battingOrder.forEach(name => { html += `<li>${name}</li>`; });
+    html += '</ol></div>';
   }
 
   // Fairness summary
@@ -533,20 +640,28 @@ function buildPrintHTML() {
 
 function openPrintView() {
   if (!lineup) { alert('Generate a lineup first.'); return; }
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(buildPrintHTML());
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
+  const w = window.open('', '_blank');
+  w.document.write(buildPrintHTML());
+  w.document.close();
+  w.focus();
+  w.print();
 }
 
 document.getElementById('print-lineup-btn').addEventListener('click', openPrintView);
 document.getElementById('pdf-lineup-btn').addEventListener('click', () => {
   if (!lineup) { alert('Generate a lineup first.'); return; }
-  const printWindow = window.open('', '_blank');
-  printWindow.document.write(buildPrintHTML());
-  printWindow.document.close();
-  printWindow.focus();
-  // Small delay to let content render before print dialog
-  setTimeout(() => printWindow.print(), 300);
+  const w = window.open('', '_blank');
+  w.document.write(buildPrintHTML());
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 300);
+});
+document.getElementById('print-batting-btn').addEventListener('click', openPrintView);
+document.getElementById('pdf-batting-btn').addEventListener('click', () => {
+  if (!lineup) { alert('Generate a lineup first.'); return; }
+  const w = window.open('', '_blank');
+  w.document.write(buildPrintHTML());
+  w.document.close();
+  w.focus();
+  setTimeout(() => w.print(), 300);
 });
